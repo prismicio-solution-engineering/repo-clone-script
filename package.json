@@ -1,0 +1,18 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@prismicio/client": "^7.3.1",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.1",
+    "form-data": "^4.0.0",
+    "fs-extra": "^11.2.0",
+    "node-fetch": "^3.3.2",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.11.16",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
