@@ -22,44 +22,52 @@ const assetUrl = `https://asset-api.prismic.io/assets`;
 async function init() {
   if (!templateRepository || !instanceRepository || !apiKey || !email || !password) throw new Error("Undefined configuration, please configure your .env file")
   try {
-      //Main execution stack
+      log(`Initializing content in the repository ${instanceRepository} based on the template ${templateRepository}`)
 
       // Fetch a document from your repository (using dangerouslyGetAll here, need to paginate if more than 100 docs)
       const client = createClient(templateRepository, { fetch });
+      
+      log("Retrieving existing documents from the template")
       const docs = await client.dangerouslyGetAll();
-      console.log(docs)
+      
+      log(`Retrieved ${docs.length} documents`)
+      if (docs.length > 40) log("Using this script with more than 40 documents can impact performances and increase the risk of errors")
+      // console.log(docs)
 
-      // Extract image urls from docs and build assetComparison table
-      const assetComparisonTable = extractImageUrls(docs);
-      console.log(assetComparisonTable)
+      const assetComparisonTable = extractImageUrls(docs);      
+      // console.log(assetComparisonTable)
 
-      // Download images from template repo
-      await downloadFiles(assetComparisonTable);
-      console.log('All files have been downloaded');
+      log("Downloading locally the template assets")
+      await downloadAssets(assetComparisonTable);
 
       // Get Auth token
+      log("Generating a user token to use Prismic's APIs")
       const token = await getAuthToken()
 
       // Upload images to new instance and update assetComparison table
+      log("Uploading assets to the new repository")
       await processFiles(assetComparisonTable, token);
-      console.log(assetComparisonTable)
+      // console.log(assetComparisonTable)
 
       // Delete local images
-      await deleteDirectory();
+      log("Deleting local assets previously downloaded")
+      await deleteLocalAssets();
 
       // Insert new Asset Ids in docs
       const docsWithNewAssetIds = mutateDocs(docs, assetComparisonTable)
-      console.log(docsWithNewAssetIds)
+      // console.log(docsWithNewAssetIds)
 
       // Push docs with new Asset Ids and build docComparisonTable
+      log("Creating the documents with assets resolved")
       const docComparisonTable = await pushUpdatedDocs(docsWithNewAssetIds, token)
-      console.log(docComparisonTable)
+      // console.log(docComparisonTable)
 
-      // // Insert new Links Ids in docs
+      // Insert new Links Ids in docs
       const docsWithNewLinks = mutateDocsWithLinks(docsWithNewAssetIds, docComparisonTable)
-      console.log(docsWithNewLinks)
+      // console.log(docsWithNewLinks)
 
       // Push docs with new Link Ids
+      log("Updating documents with links resolved")
       await pushUpdatedDocsWithLinks(docsWithNewLinks,token)
   } catch (err) {
       console.error('An error occurred:', err);
@@ -68,7 +76,19 @@ async function init() {
 
 init();
 
-// Get all assets from a list of docs
+// Simple logger function
+function log(message: string, nesting: number = 0): void {
+  if (nesting === 0) console.log("[Init Content]: ", message)
+  else {
+    let padding = ""
+    for (let i = 0; i < nesting; i++) {
+      padding = padding + "\t"
+    }
+    console.log(padding, `- ${message}`)
+  }
+}
+
+// Get all assets used in the documents
 function extractImageUrls(documents: PrismicDocument[]) {
     const imageUrls: {
         id: string;
@@ -196,7 +216,7 @@ function extractImageFromObject(record: Record<string, AnyRegularField | GroupFi
 }
 
 // // Download images from template repo
-const downloadFiles = async (assetComparisonTable: {
+const downloadAssets = async (assetComparisonTable: {
     olDid: string;
     url: string;
     fileName: string;
@@ -207,10 +227,8 @@ const downloadFiles = async (assetComparisonTable: {
     // Ensure the /assets directory exists
     await fs.ensureDir(assetsDir);
 
-    console.log(assetComparisonTable)
     // Process each URL
     for (const asset of assetComparisonTable) {
-        console.log(asset)
         try {
             const response = await axios({
                 method: 'GET',
@@ -230,7 +248,7 @@ const downloadFiles = async (assetComparisonTable: {
                 writer.on('error', reject);
             });
 
-            console.log(`File downloaded and saved: ${filePath}`);
+            log(`Asset ${asset.olDid} downloaded and saved: ${filePath}`, 1);
         } catch (error) {
             if (error instanceof Error) {
                 console.error(`Error downloading ${asset.url}: ${error.message}`);
@@ -254,7 +272,6 @@ const processFiles = async (assetComparisonTable: {
             const uploadResponse = await uploadFile(filePath, token);
             assetComparisonTable[i].newId = uploadResponse.data.id
         }
-        console.log('All assets uploaded to target media library');
     } catch (err) {
         console.error('Error processing files:', err);
     }
@@ -292,19 +309,17 @@ const getAuthToken = async () => {
         }),
     });
 
-    const token = await authResponse.text(); //process.env.MIGRATION_API_TOKEN
-
+    const token = await authResponse.text();
     return token
 }
 
 const delay = (ms: number | undefined) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Empty /assets repository
-const deleteDirectory = async () => {
+const deleteLocalAssets = async () => {
     const folderPath = path.join(process.cwd(), '/assets');
     try {
         await fs.promises.rm(folderPath, { recursive: true, force: true });
-        console.log('Assets directory and its contents have been deleted');
     } catch (err) {
         console.error('Error deleting directory:', err);
     }
@@ -445,7 +460,7 @@ const pushUpdatedDocs = async (docsWithNewAssetIds: (PrismicDocument & { title: 
                 body: JSON.stringify(doc),
             });
             if (response.ok) {
-                console.log('New document imported of type : ' + doc.type + " and uid: " + doc.uid);
+                log('New document imported of type : ' + doc.type + " and uid: " + doc.uid, 1);
                 const newDoc = await response.json() as {
                     id: string,
                     type: string,
