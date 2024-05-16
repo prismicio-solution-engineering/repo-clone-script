@@ -11,7 +11,7 @@ import type { PrismicDocument, SliceZone } from '@prismicio/client';
 config();
 
 const templateRepository = process.env.TEMPLATE_DOMAIN;
-const instanceRepository = process.env.NEW_REPOSITORY_DOMAIN
+const instanceRepository = process.argv[2] ?? process.env.NEW_REPOSITORY_DOMAIN
 const apiKey = process.env.MIGRATION_API_BETA_KEY;
 const email = process.env.EMAIL;
 const password = process.env.PASSWORD;
@@ -23,7 +23,7 @@ async function init() {
   if (!templateRepository || !instanceRepository || !apiKey || !email || !password) throw new Error("Undefined configuration, please configure your .env file")
   try {
       log(`Initializing content in the repository ${instanceRepository} based on the template ${templateRepository}`)
-
+      
       // Fetch a document from your repository (using dangerouslyGetAll here, need to paginate if more than 100 docs)
       const client = createClient(templateRepository, { fetch });
       
@@ -46,7 +46,7 @@ async function init() {
 
       // Upload images to new instance and update assetComparison table
       log("Uploading assets to the new repository")
-      await processFiles(assetComparisonTable, token);
+      await uploadAssets(assetComparisonTable, token);
       // console.log(assetComparisonTable)
 
       // Delete local images
@@ -258,7 +258,7 @@ const downloadAssets = async (assetComparisonTable: {
 };
 
 // Upload assets and update asset comparison table with new assetID
-const processFiles = async (assetComparisonTable: {
+const uploadAssets = async (assetComparisonTable: {
     olDid: string;
     url: string;
     fileName: string;
@@ -271,6 +271,7 @@ const processFiles = async (assetComparisonTable: {
             const filePath = path.join(folderPath, assetComparisonTable[i].fileName);
             const uploadResponse = await uploadFile(filePath, token);
             assetComparisonTable[i].newId = uploadResponse.data.id
+            log(`Uploaded Asset located at: ${filePath}`, 1)
         }
     } catch (err) {
         console.error('Error processing files:', err);
