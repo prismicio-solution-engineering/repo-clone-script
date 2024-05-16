@@ -1,74 +1,75 @@
+import { config } from 'dotenv';
 import fetch from 'node-fetch';
 import 'dotenv/config'
 import path from 'path';
 import fs from 'fs-extra'
 import axios from 'axios'
 import FormData from 'form-data'
-//import config from '../slicemachine.config.json' assert { type: 'json' }
-import { AllDocumentTypes } from './prismicio-types.js';
-import { createClient, AnyRegularField, GroupField, SliceZone, isFilled, RTNode, FilledLinkToMediaField, PrismicDocument } from '@prismicio/client';
+import { createClient, AnyRegularField, GroupField, isFilled, RTNode, FilledLinkToMediaField } from '@prismicio/client';
+import type { PrismicDocument, SliceZone } from '@prismicio/client';
 
-const templateRepository = 'website-factory-template';
-const instanceRepository = process.env.TARGET_REPO //|| config.repositoryName // target repositoryName;
-const apiKey = process.env.CMSRP_API_KEY;
-const email = process.env.CMSRP_EMAIL;
-const password = process.env.CMSRP_PWD;
+config();
+
+const templateRepository = process.env.TEMPLATE_DOMAIN;
+const instanceRepository = process.env.NEW_REPOSITORY_DOMAIN
+const apiKey = process.env.MIGRATION_API_BETA_KEY;
+const email = process.env.EMAIL;
+const password = process.env.PASSWORD;
 // Construct the Prismic Write request URLs
 const migrationUrl = `https://migration.prismic.io/documents`;
 const assetUrl = `https://asset-api.prismic.io/assets`;
 
 async function init() {
+  if (!templateRepository || !instanceRepository || !apiKey || !email || !password) throw new Error("Undefined configuration, please configure your .env file")
+  try {
+      //Main execution stack
 
-    try {
-        //Main execution stack
+      // Fetch a document from your repository (using dangerouslyGetAll here, need to paginate if more than 100 docs)
+      const client = createClient(templateRepository, { fetch });
+      const docs = await client.dangerouslyGetAll();
+      console.log(docs)
 
-        // Fetch a document from your repository (using dangerouslyGetAll here, need to paginate if more than 100 docs)
-        const client = createClient(templateRepository, { fetch });
-        const docs = await client.dangerouslyGetAll();
-        console.log(docs)
+      // Extract image urls from docs and build assetComparison table
+      const assetComparisonTable = extractImageUrls(docs);
+      console.log(assetComparisonTable)
 
-        // Extract image urls from docs and build assetComparison table
-        const assetComparisonTable = extractImageUrls(docs);
-        console.log(assetComparisonTable)
+      // Download images from template repo
+      await downloadFiles(assetComparisonTable);
+      console.log('All files have been downloaded');
 
-        // Download images from template repo
-        await downloadFiles(assetComparisonTable);
-        console.log('All files have been downloaded');
+      // Get Auth token
+      const token = await getAuthToken()
 
-        // Get Auth token
-        const token = await getAuthToken()
+      // Upload images to new instance and update assetComparison table
+      await processFiles(assetComparisonTable, token);
+      console.log(assetComparisonTable)
 
-        // Upload images to new instance and update assetComparison table
-        await processFiles(assetComparisonTable, token);
-        console.log(assetComparisonTable)
+      // Delete local images
+      await deleteDirectory();
 
-        // Delete local images
-        await deleteDirectory();
+      // Insert new Asset Ids in docs
+      const docsWithNewAssetIds = mutateDocs(docs, assetComparisonTable)
+      console.log(docsWithNewAssetIds)
 
-        // Insert new Asset Ids in docs
-        const docsWithNewAssetIds = mutateDocs(docs, assetComparisonTable)
-        console.log(docsWithNewAssetIds)
+      // Push docs with new Asset Ids and build docComparisonTable
+      const docComparisonTable = await pushUpdatedDocs(docsWithNewAssetIds, token)
+      console.log(docComparisonTable)
 
-        // Push docs with new Asset Ids and build docComparisonTable
-        const docComparisonTable = await pushUpdatedDocs(docsWithNewAssetIds, token)
-        console.log(docComparisonTable)
+      // // Insert new Links Ids in docs
+      const docsWithNewLinks = mutateDocsWithLinks(docsWithNewAssetIds, docComparisonTable)
+      console.log(docsWithNewLinks)
 
-        // // Insert new Links Ids in docs
-        const docsWithNewLinks = mutateDocsWithLinks(docsWithNewAssetIds, docComparisonTable)
-        console.log(docsWithNewLinks)
-
-        // Push docs with new Link Ids
-        await pushUpdatedDocsWithLinks(docsWithNewLinks,token)
-    } catch (err) {
-        console.error('An error occurred:', err);
-    }
-
+      // Push docs with new Link Ids
+      await pushUpdatedDocsWithLinks(docsWithNewLinks,token)
+  } catch (err) {
+      console.error('An error occurred:', err);
+  }
 }
 
 init();
 
 // Get all assets from a list of docs
-function extractImageUrls(documents: AllDocumentTypes[]) {
+function extractImageUrls(documents: PrismicDocument[]) {
     const imageUrls: {
         id: string;
         url: string;
@@ -82,8 +83,8 @@ function extractImageUrls(documents: AllDocumentTypes[]) {
             extractImageFromObject(document.data, imageUrls);
 
             // Extract from slices if available
-            if ("slices" in document.data && document.data.slices) {
-                document.data.slices.forEach((slice) => {
+            if (document.data.slices) {
+                (document.data.slices as SliceZone).forEach((slice) => {
                     // Extract from primary object
                     if (slice.primary) {
                         extractImageFromObject(slice.primary, imageUrls);
@@ -310,7 +311,7 @@ const deleteDirectory = async () => {
 };
 
 //Replace assetIDs in all docs
-const mutateDocs = (docs: AllDocumentTypes[], assetComparisonTable: {
+const mutateDocs = (docs: PrismicDocument[], assetComparisonTable: {
     olDid: string;
     url: string;
     fileName: string;
