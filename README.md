@@ -35,6 +35,10 @@ This will start the process of copying documents and associated assets from the 
 
 <br>
 
+# Troubleshooting
+
+If you encounter any issue while the script is running, technical logs can be uncommented to verify the validity of your data and resolve the issue.
+
 # Documentation
 
 Complete documentation on how to create a custom starter for Prismic [here](https://prismic.io/docs/starters)
