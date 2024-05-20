@@ -289,7 +289,8 @@ const uploadFile = async (filePath: fs.PathLike, token: string) => {
             'x-api-key': apiKey,
             'Content-Type': 'multipart/form-data',
             'repository': instanceRepository,
-            'Accept': "application/json"
+            'Accept': "application/json",
+            'User-Agent': 'prismic-clone-script'
         },
     });
 
@@ -302,6 +303,7 @@ const getAuthToken = async () => {
     const authResponse = await fetch('https://auth.prismic.io/login', {
         headers: {
             'Content-Type': 'application/json',
+            'User-Agent': 'prismic-clone-script'
         },
         method: 'POST',
         body: JSON.stringify({
@@ -456,6 +458,7 @@ const pushUpdatedDocs = async (docsWithNewAssetIds: (PrismicDocument & { title: 
                     'x-api-key': apiKey!,
                     'Content-Type': 'application/json',
                     'repository': instanceRepository!,
+                    'User-Agent': 'prismic-clone-script'
                 },
                 method: 'POST',
                 body: JSON.stringify(doc),
@@ -597,6 +600,7 @@ const pushUpdatedDocsWithLinks = async (docsWithNewLinks: (PrismicDocument & { t
                 'x-api-key': apiKey!,
                 'Content-Type': 'application/json',
                 'repository': instanceRepository!,
+                'User-Agent': 'prismic-clone-script'
             },
             method: 'PUT',
             body: JSON.stringify(doc),
