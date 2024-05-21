@@ -360,7 +360,7 @@ const mutateDocs = (docs: PrismicDocument[], assetComparisonTable: {
                 }
             }
             //add a title to doc
-            mutatedDoc.title = document.uid ? document.type + " " + document.uid : document.type
+            mutatedDoc.title = document.uid ?? document.type
         }
         mutatedDocs.push(mutatedDoc)
     });
