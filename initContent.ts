@@ -10,8 +10,8 @@ import type { PrismicDocument, SliceZone } from '@prismicio/client';
 
 config();
 
-const templateRepository = process.env.TEMPLATE_DOMAIN;
 const instanceRepository = process.argv[2] ?? process.env.NEW_REPOSITORY_DOMAIN
+const templateRepository = process.env.TEMPLATE_DOMAIN;
 const apiKey = process.env.MIGRATION_API_BETA_KEY;
 const email = process.env.EMAIL;
 const password = process.env.PASSWORD;
@@ -24,14 +24,17 @@ async function init() {
   try {
       log(`Initializing content in the repository ${instanceRepository} based on the template ${templateRepository}`)
       
-      // Fetch a document from your repository (using dangerouslyGetAll here, need to paginate if more than 100 docs)
+      // Fetch the published documents from the template repository
       const client = createClient(templateRepository, { fetch });
       
-      log("Retrieving existing documents from the template")
+      log("Retrieving existing documents from the template for the master language")
       const docs = await client.dangerouslyGetAll();
       
       log(`Retrieved ${docs.length} documents`)
-      if (docs.length > 40) log("Using this script with more than 40 documents can impact performances and increase the risk of errors")
+      if (docs.length > 1000) {
+        log("Uploading more than 1000 documents would fail because of the Migration Release current limit")
+        process.exit(1)
+      }
       // console.log(docs)
 
       const assetComparisonTable = extractImageUrls(docs);      

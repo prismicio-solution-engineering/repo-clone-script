@@ -1,9 +1,9 @@
 # Overview
 
-This script facilitates the copying of documents and assets from one Prismic repository to another.  
+This script facilitates the copying of documents (up to a thousand) and assets from one Prismic repository to another.  
 It can be used to instentiate a new repository quickly based on a `custom template` Prismic repository.
 
-The script will copy the documents that are currently available on your `custom template` and import them along with the assets they might use in the target repository.
+The script will copy the documents that are currently available on your `custom template` in the master language and import them along with the assets they might use in the target repository.
 
 <br>
 
@@ -34,6 +34,11 @@ npm run start -- <target_repository>
 This will start the process of copying documents and associated assets from the `custom template` Prismic repository to the target repository.
 
 <br>
+
+# Limitation
+
+- This script currently does not handle multi language starters.
+- This script can handle up to 1000 documents as the migration release can only contain that much documents for now.
 
 # Troubleshooting
 
