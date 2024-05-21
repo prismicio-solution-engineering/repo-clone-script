@@ -3,7 +3,6 @@ import fetch from 'node-fetch';
 import 'dotenv/config'
 import path from 'path';
 import fs from 'fs-extra'
-import axios from 'axios'
 import FormData from 'form-data'
 import { createClient, AnyRegularField, GroupField, isFilled, RTNode, FilledLinkToMediaField } from '@prismicio/client';
 import type { PrismicDocument, SliceZone } from '@prismicio/client';
@@ -218,48 +217,47 @@ function extractImageFromObject(record: Record<string, AnyRegularField | GroupFi
     }
 }
 
-// // Download images from template repo
+// Download images from template repo
 const downloadAssets = async (assetComparisonTable: {
-    olDid: string;
-    url: string;
-    fileName: string;
-    newId: string;
+  olDid: string;
+  url: string;
+  fileName: string;
+  newId: string;
 }[]) => {
-    const assetsDir = path.join(process.cwd(), '/assets');
+  const assetsDir = path.join(process.cwd(), '/assets');
 
-    // Ensure the /assets directory exists
-    await fs.ensureDir(assetsDir);
+  // Ensure the /assets directory exists
+  await fs.ensureDir(assetsDir);
 
-    // Process each URL
-    for (const asset of assetComparisonTable) {
-        try {
-            const response = await axios({
-                method: 'GET',
-                url: asset.url,
-                responseType: 'stream'
-            });
+  // Process each URL
+  for (const asset of assetComparisonTable) {
+      try {
+          const response = await fetch(asset.url);
 
-            const filePath = path.join(assetsDir, asset.fileName);
+          if (!response.ok || response.body === null) {
+              throw new Error(`Failed to fetch ${asset.url}: ${response.statusText}`);
+          }
 
-            // Pipe the file to the local filesystem
-            const writer = fs.createWriteStream(filePath);
-            response.data.pipe(writer);
+          const filePath = path.join(assetsDir, asset.fileName);
 
-            // Return a promise that resolves when the file is finished writing
-            await new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-            });
+          // Pipe the file to the local filesystem
+          const writer = fs.createWriteStream(filePath);
+          response.body.pipe(writer);
 
-            log(`Asset ${asset.olDid} downloaded and saved: ${filePath}`, 1);
-        } catch (error) {
-            if (error instanceof Error) {
-                console.error(`Error downloading ${asset.url}: ${error.message}`);
-            }
-        }
-    }
+          // Return a promise that resolves when the file is finished writing
+          await new Promise((resolve, reject) => {
+              writer.on('finish', resolve);
+              writer.on('error', reject);
+          });
+
+          log(`Asset ${asset.olDid} downloaded and saved: ${filePath}`, 1);
+      } catch (error) {
+          if (error instanceof Error) {
+              console.error(`Error downloading ${asset.url}: ${error.message}`);
+          }
+      }
+  }
 };
-
 // Upload assets and update asset comparison table with new assetID
 const uploadAssets = async (assetComparisonTable: {
     olDid: string;
@@ -283,22 +281,35 @@ const uploadAssets = async (assetComparisonTable: {
 
 // Upload Asset File query (wait for 2s)
 const uploadFile = async (filePath: fs.PathLike, token: string) => {
-    const formData = new FormData();
-    formData.append('file', fs.createReadStream(filePath));
+  const formData = new FormData();
+  formData.append('file', fs.createReadStream(filePath));
 
-    const response = await axios.post(assetUrl, formData, {
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'x-api-key': apiKey,
-            'Content-Type': 'multipart/form-data',
-            'repository': instanceRepository,
-            'Accept': "application/json",
-            'User-Agent': 'prismic-clone-script'
-        },
-    });
+  const response = await fetch(assetUrl, {
+      method: 'POST',
+      body: formData,
+      headers: {
+          ...formData.getHeaders(),
+          Authorization: `Bearer ${token}`,
+          'x-api-key': apiKey!,
+          'repository': instanceRepository,
+          'Accept': 'application/json',
+          'User-Agent': 'prismic-clone-script'
+      },
+  });
 
-    await delay(2000);
-    return response
+  if (!response.ok) {
+      throw new Error(`Failed to upload file: ${response.statusText}`);
+  }
+
+  await delay(1000);
+
+  const json = await response.json();
+  return {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers.raw(),
+    data: json as { id: string }
+  }
 };
 
 // Get an auth token
@@ -478,7 +489,7 @@ const pushUpdatedDocs = async (docsWithNewAssetIds: (PrismicDocument & { title: 
             } else {
                 console.error('Request failed for doc of type : ' + doc.type + " and uid: " + doc.uid + " Error details : " + await response.text());
             }
-            await delay(2000);
+            await delay(1000);
         } catch (err) {
             console.error('Error while uploading new document: ', err);
         }
@@ -609,6 +620,6 @@ const pushUpdatedDocsWithLinks = async (docsWithNewLinks: (PrismicDocument & { t
             body: JSON.stringify(doc),
         });
 
-        await delay(2000);
+        await delay(1000);
     }
 }
