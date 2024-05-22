@@ -1,74 +1,97 @@
+import { config } from 'dotenv';
 import fetch from 'node-fetch';
 import 'dotenv/config'
 import path from 'path';
 import fs from 'fs-extra'
-import axios from 'axios'
 import FormData from 'form-data'
-//import config from '../slicemachine.config.json' assert { type: 'json' }
-import { AllDocumentTypes } from './prismicio-types.js';
-import { createClient, AnyRegularField, GroupField, SliceZone, isFilled, RTNode, FilledLinkToMediaField, PrismicDocument } from '@prismicio/client';
+import { createClient, AnyRegularField, GroupField, isFilled, RTNode, FilledLinkToMediaField } from '@prismicio/client';
+import type { PrismicDocument, SliceZone } from '@prismicio/client';
 
-const templateRepository = 'website-factory-template';
-const instanceRepository = process.env.TARGET_REPO //|| config.repositoryName // target repositoryName;
-const apiKey = process.env.CMSRP_API_KEY;
-const email = process.env.CMSRP_EMAIL;
-const password = process.env.CMSRP_PWD;
+config();
+
+const instanceRepository = process.argv[2] ?? process.env.NEW_REPOSITORY_DOMAIN
+const templateRepository = process.env.TEMPLATE_DOMAIN;
+const apiKey = process.env.MIGRATION_API_BETA_KEY;
+const email = process.env.EMAIL;
+const password = process.env.PASSWORD;
 // Construct the Prismic Write request URLs
 const migrationUrl = `https://migration.prismic.io/documents`;
 const assetUrl = `https://asset-api.prismic.io/assets`;
 
 async function init() {
+  if (!templateRepository || !instanceRepository || !apiKey || !email || !password) throw new Error("Undefined configuration, please configure your .env file")
+  try {
+      log(`Initializing content in the repository ${instanceRepository} based on the template ${templateRepository}`)
+      
+      // Fetch the published documents from the template repository
+      const client = createClient(templateRepository, { fetch });
+      
+      log("Retrieving existing documents from the template for the master language")
+      const docs = await client.dangerouslyGetAll();
+      
+      log(`Retrieved ${docs.length} documents`)
+      if (docs.length > 1000) {
+        log("Uploading more than 1000 documents would fail because of the Migration Release current limit")
+        process.exit(1)
+      }
+      // console.log(docs)
 
-    try {
-        //Main execution stack
+      const assetComparisonTable = extractImageUrls(docs);      
+      // console.log(assetComparisonTable)
 
-        // Fetch a document from your repository (using dangerouslyGetAll here, need to paginate if more than 100 docs)
-        const client = createClient(templateRepository, { fetch });
-        const docs = await client.dangerouslyGetAll();
-        console.log(docs)
+      log("Downloading locally the template assets")
+      await downloadAssets(assetComparisonTable);
 
-        // Extract image urls from docs and build assetComparison table
-        const assetComparisonTable = extractImageUrls(docs);
-        console.log(assetComparisonTable)
+      // Get Auth token
+      log("Generating a user token to use Prismic's APIs")
+      const token = await getAuthToken()
 
-        // Download images from template repo
-        await downloadFiles(assetComparisonTable);
-        console.log('All files have been downloaded');
+      // Upload images to new instance and update assetComparison table
+      log("Uploading assets to the new repository")
+      await uploadAssets(assetComparisonTable, token);
+      // console.log(assetComparisonTable)
 
-        // Get Auth token
-        const token = await getAuthToken()
+      // Delete local images
+      log("Deleting local assets previously downloaded")
+      await deleteLocalAssets();
 
-        // Upload images to new instance and update assetComparison table
-        await processFiles(assetComparisonTable, token);
-        console.log(assetComparisonTable)
+      // Insert new Asset Ids in docs
+      const docsWithNewAssetIds = mutateDocs(docs, assetComparisonTable)
+      // console.log(docsWithNewAssetIds)
 
-        // Delete local images
-        await deleteDirectory();
+      // Push docs with new Asset Ids and build docComparisonTable
+      log("Creating the documents with assets resolved")
+      const docComparisonTable = await pushUpdatedDocs(docsWithNewAssetIds, token)
+      // console.log(docComparisonTable)
 
-        // Insert new Asset Ids in docs
-        const docsWithNewAssetIds = mutateDocs(docs, assetComparisonTable)
-        console.log(docsWithNewAssetIds)
+      // Insert new Links Ids in docs
+      const docsWithNewLinks = mutateDocsWithLinks(docsWithNewAssetIds, docComparisonTable)
+      // console.log(docsWithNewLinks)
 
-        // Push docs with new Asset Ids and build docComparisonTable
-        const docComparisonTable = await pushUpdatedDocs(docsWithNewAssetIds, token)
-        console.log(docComparisonTable)
-
-        // // Insert new Links Ids in docs
-        const docsWithNewLinks = mutateDocsWithLinks(docsWithNewAssetIds, docComparisonTable)
-        console.log(docsWithNewLinks)
-
-        // Push docs with new Link Ids
-        await pushUpdatedDocsWithLinks(docsWithNewLinks,token)
-    } catch (err) {
-        console.error('An error occurred:', err);
-    }
-
+      // Push docs with new Link Ids
+      log("Updating documents with links resolved")
+      await pushUpdatedDocsWithLinks(docsWithNewLinks,token)
+  } catch (err) {
+      console.error('An error occurred:', err);
+  }
 }
 
 init();
 
-// Get all assets from a list of docs
-function extractImageUrls(documents: AllDocumentTypes[]) {
+// Simple logger function
+function log(message: string, nesting: number = 0): void {
+  if (nesting === 0) console.log("[Init Content]: ", message)
+  else {
+    let padding = ""
+    for (let i = 0; i < nesting; i++) {
+      padding = padding + "\t"
+    }
+    console.log(padding, `- ${message}`)
+  }
+}
+
+// Get all assets used in the documents
+function extractImageUrls(documents: PrismicDocument[]) {
     const imageUrls: {
         id: string;
         url: string;
@@ -82,8 +105,8 @@ function extractImageUrls(documents: AllDocumentTypes[]) {
             extractImageFromObject(document.data, imageUrls);
 
             // Extract from slices if available
-            if ("slices" in document.data && document.data.slices) {
-                document.data.slices.forEach((slice) => {
+            if (document.data.slices) {
+                (document.data.slices as SliceZone).forEach((slice) => {
                     // Extract from primary object
                     if (slice.primary) {
                         extractImageFromObject(slice.primary, imageUrls);
@@ -194,52 +217,49 @@ function extractImageFromObject(record: Record<string, AnyRegularField | GroupFi
     }
 }
 
-// // Download images from template repo
-const downloadFiles = async (assetComparisonTable: {
-    olDid: string;
-    url: string;
-    fileName: string;
-    newId: string;
+// Download images from template repo
+const downloadAssets = async (assetComparisonTable: {
+  olDid: string;
+  url: string;
+  fileName: string;
+  newId: string;
 }[]) => {
-    const assetsDir = path.join(process.cwd(), '/assets');
+  const assetsDir = path.join(process.cwd(), '/assets');
 
-    // Ensure the /assets directory exists
-    await fs.ensureDir(assetsDir);
+  // Ensure the /assets directory exists
+  await fs.ensureDir(assetsDir);
 
-    console.log(assetComparisonTable)
-    // Process each URL
-    for (const asset of assetComparisonTable) {
-        console.log(asset)
-        try {
-            const response = await axios({
-                method: 'GET',
-                url: asset.url,
-                responseType: 'stream'
-            });
+  // Process each URL
+  for (const asset of assetComparisonTable) {
+      try {
+          const response = await fetch(asset.url);
 
-            const filePath = path.join(assetsDir, asset.fileName);
+          if (!response.ok || response.body === null) {
+              throw new Error(`Failed to fetch ${asset.url}: ${response.statusText}`);
+          }
 
-            // Pipe the file to the local filesystem
-            const writer = fs.createWriteStream(filePath);
-            response.data.pipe(writer);
+          const filePath = path.join(assetsDir, asset.fileName);
 
-            // Return a promise that resolves when the file is finished writing
-            await new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-            });
+          // Pipe the file to the local filesystem
+          const writer = fs.createWriteStream(filePath);
+          response.body.pipe(writer);
 
-            console.log(`File downloaded and saved: ${filePath}`);
-        } catch (error) {
-            if (error instanceof Error) {
-                console.error(`Error downloading ${asset.url}: ${error.message}`);
-            }
-        }
-    }
+          // Return a promise that resolves when the file is finished writing
+          await new Promise((resolve, reject) => {
+              writer.on('finish', resolve);
+              writer.on('error', reject);
+          });
+
+          log(`Asset ${asset.olDid} downloaded and saved: ${filePath}`, 1);
+      } catch (error) {
+          if (error instanceof Error) {
+              console.error(`Error downloading ${asset.url}: ${error.message}`);
+          }
+      }
+  }
 };
-
 // Upload assets and update asset comparison table with new assetID
-const processFiles = async (assetComparisonTable: {
+const uploadAssets = async (assetComparisonTable: {
     olDid: string;
     url: string;
     fileName: string;
@@ -252,8 +272,8 @@ const processFiles = async (assetComparisonTable: {
             const filePath = path.join(folderPath, assetComparisonTable[i].fileName);
             const uploadResponse = await uploadFile(filePath, token);
             assetComparisonTable[i].newId = uploadResponse.data.id
+            log(`Uploaded Asset located at: ${filePath}`, 1)
         }
-        console.log('All assets uploaded to target media library');
     } catch (err) {
         console.error('Error processing files:', err);
     }
@@ -261,21 +281,35 @@ const processFiles = async (assetComparisonTable: {
 
 // Upload Asset File query (wait for 2s)
 const uploadFile = async (filePath: fs.PathLike, token: string) => {
-    const formData = new FormData();
-    formData.append('file', fs.createReadStream(filePath));
+  const formData = new FormData();
+  formData.append('file', fs.createReadStream(filePath));
 
-    const response = await axios.post(assetUrl, formData, {
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'x-api-key': apiKey,
-            'Content-Type': 'multipart/form-data',
-            'repository': instanceRepository,
-            'Accept': "application/json"
-        },
-    });
+  const response = await fetch(assetUrl, {
+      method: 'POST',
+      body: formData,
+      headers: {
+          ...formData.getHeaders(),
+          Authorization: `Bearer ${token}`,
+          'x-api-key': apiKey!,
+          'repository': instanceRepository,
+          'Accept': 'application/json',
+          'User-Agent': 'prismic-clone-script'
+      },
+  });
 
-    await delay(2000);
-    return response
+  if (!response.ok) {
+      throw new Error(`Failed to upload file: ${response.statusText}`);
+  }
+
+  await delay(1000);
+
+  const json = await response.json();
+  return {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers.raw(),
+    data: json as { id: string }
+  }
 };
 
 // Get an auth token
@@ -283,6 +317,7 @@ const getAuthToken = async () => {
     const authResponse = await fetch('https://auth.prismic.io/login', {
         headers: {
             'Content-Type': 'application/json',
+            'User-Agent': 'prismic-clone-script'
         },
         method: 'POST',
         body: JSON.stringify({
@@ -291,26 +326,24 @@ const getAuthToken = async () => {
         }),
     });
 
-    const token = await authResponse.text(); //process.env.MIGRATION_API_TOKEN
-
+    const token = await authResponse.text();
     return token
 }
 
 const delay = (ms: number | undefined) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Empty /assets repository
-const deleteDirectory = async () => {
+const deleteLocalAssets = async () => {
     const folderPath = path.join(process.cwd(), '/assets');
     try {
         await fs.promises.rm(folderPath, { recursive: true, force: true });
-        console.log('Assets directory and its contents have been deleted');
     } catch (err) {
         console.error('Error deleting directory:', err);
     }
 };
 
 //Replace assetIDs in all docs
-const mutateDocs = (docs: AllDocumentTypes[], assetComparisonTable: {
+const mutateDocs = (docs: PrismicDocument[], assetComparisonTable: {
     olDid: string;
     url: string;
     fileName: string;
@@ -341,7 +374,7 @@ const mutateDocs = (docs: AllDocumentTypes[], assetComparisonTable: {
                 }
             }
             //add a title to doc
-            mutatedDoc.title = document.uid ? document.type + " " + document.uid : document.type
+            mutatedDoc.title = document.uid ?? document.type
         }
         mutatedDocs.push(mutatedDoc)
     });
@@ -439,12 +472,13 @@ const pushUpdatedDocs = async (docsWithNewAssetIds: (PrismicDocument & { title: 
                     'x-api-key': apiKey!,
                     'Content-Type': 'application/json',
                     'repository': instanceRepository!,
+                    'User-Agent': 'prismic-clone-script'
                 },
                 method: 'POST',
                 body: JSON.stringify(doc),
             });
             if (response.ok) {
-                console.log('New document imported of type : ' + doc.type + " and uid: " + doc.uid);
+                log('New document imported of type : ' + doc.type + " and uid: " + doc.uid, 1);
                 const newDoc = await response.json() as {
                     id: string,
                     type: string,
@@ -455,7 +489,7 @@ const pushUpdatedDocs = async (docsWithNewAssetIds: (PrismicDocument & { title: 
             } else {
                 console.error('Request failed for doc of type : ' + doc.type + " and uid: " + doc.uid + " Error details : " + await response.text());
             }
-            await delay(2000);
+            await delay(1000);
         } catch (err) {
             console.error('Error while uploading new document: ', err);
         }
@@ -580,11 +614,12 @@ const pushUpdatedDocsWithLinks = async (docsWithNewLinks: (PrismicDocument & { t
                 'x-api-key': apiKey!,
                 'Content-Type': 'application/json',
                 'repository': instanceRepository!,
+                'User-Agent': 'prismic-clone-script'
             },
             method: 'PUT',
             body: JSON.stringify(doc),
         });
 
-        await delay(2000);
+        await delay(1000);
     }
 }
