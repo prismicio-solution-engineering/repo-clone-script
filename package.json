@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "tsx initContent.ts"
+    "start": "tsx initContent.ts",
+    "test": "tsx uploadAsset.ts"
   },
   "dependencies": {
     "@prismicio/client": "^7.3.1",
