@@ -1,0 +1,131 @@
+[
+  {
+    "id": "ZmcCuhAAACEAZYYF",
+    "uid": null,
+    "url": null,
+    "type": "homepage",
+    "href": "https://acme-inc-library-scripty.cdn.prismic.io/api/v2/documents/search?ref=ZmlSxRAAACIAkIQI&q=%5B%5B%3Ad+%3D+at%28document.id%2C+%22ZmcCuhAAACEAZYYF%22%29+%5D%5D",
+    "tags": [],
+    "first_publication_date": "2024-06-10T14:00:36+0000",
+    "last_publication_date": "2024-06-12T07:42:54+0000",
+    "slugs": [
+      "homepage"
+    ],
+    "linked_documents": [],
+    "lang": "en-us",
+    "alternate_languages": [],
+    "data": {
+      "slices": [
+        {
+          "variation": "default",
+          "version": "initial",
+          "items": [
+            {
+              "name": "Alaina",
+              "position": "Product Manager",
+              "profile_picture": {
+                "dimensions": {
+                  "width": 200,
+                  "height": 200
+                },
+                "alt": null,
+                "copyright": null,
+                "url": "https://images.prismic.io/acme-inc-library-scripty/ZmcCm5m069VX1mfj_christopher-campbell-rDEOVtE7vOs-unsplash.jpg?auto=format%2Ccompress&rect=1807%2C791%2C1152%2C1152&w=200&h=200",
+                "id": "ZmcCm5m069VX1mfj",
+                "edit": {
+                  "x": 1807,
+                  "y": 791,
+                  "zoom": 3,
+                  "background": "transparent"
+                }
+              }
+            }
+          ],
+          "primary": {
+            "section_title": [
+              {
+                "type": "heading1",
+                "text": "Team Product",
+                "spans": [],
+                "direction": "ltr"
+              }
+            ]
+          },
+          "id": "team_section$35ce15c1-b9ae-4658-ab90-08db7e97bc77",
+          "slice_type": "team_section",
+          "slice_label": null
+        },
+        {
+          "variation": "default",
+          "version": "initial",
+          "items": [
+            {
+              "question": "Who are you?",
+              "answer": "I'm you"
+            }
+          ],
+          "primary": {
+            "section_title": "Your questions are our answers"
+          },
+          "id": "Faq_slice$c3962cc5-2471-4545-8cda-d9b4f1c3f972",
+          "slice_type": "Faq_slice",
+          "slice_label": null
+        },
+        {
+          "variation": "default",
+          "version": "initial",
+          "items": [],
+          "primary": {
+            "title": [
+              {
+                "type": "paragraph",
+                "text": "We just added our new slice",
+                "spans": [
+                  {
+                    "start": 14,
+                    "end": 17,
+                    "type": "hyperlink",
+                    "data": {
+                      "id": "ZmcCtxAAACMAZYX_",
+                      "type": "header",
+                      "tags": [],
+                      "lang": "en-us",
+                      "slug": "header",
+                      "first_publication_date": "2024-06-10T14:00:36+0000",
+                      "last_publication_date": "2024-06-12T07:41:28+0000",
+                      "link_type": "Document",
+                      "isBroken": false
+                    }
+                  },
+                  {
+                    "start": 22,
+                    "end": 27,
+                    "type": "hyperlink",
+                    "data": {
+                      "id": "ZmcCm5m069VX1mfj",
+                      "link_type": "Media",
+                      "name": "christopher-campbell-rDEOVtE7vOs-unsplash.jpg",
+                      "kind": "image",
+                      "url": "https://images.prismic.io/acme-inc-library-scripty/ZmcCm5m069VX1mfj_christopher-campbell-rDEOVtE7vOs-unsplash.jpg?auto=format,compress?auto=compress,format",
+                      "size": "617917",
+                      "height": "3456",
+                      "width": "5184"
+                    }
+                  }
+                ],
+                "direction": "ltr"
+              }
+            ],
+            "label": "check it out"
+          },
+          "id": "cta_slice$31c28671-4593-4870-82ba-19245e841ef8",
+          "slice_type": "cta_slice",
+          "slice_label": null
+        }
+      ],
+      "meta_title": null,
+      "meta_description": null,
+      "meta_image": {}
+    }
+  }
+]

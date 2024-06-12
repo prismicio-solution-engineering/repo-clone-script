@@ -1,0 +1,18 @@
+{
+  "total": 1,
+  "items": [
+    {
+      "id": "ZmcCm5m069VX1mfj",
+      "url": "https://images.prismic.io/acme-inc-library-scripty/ZmcCm5m069VX1mfj_christopher-campbell-rDEOVtE7vOs-unsplash.jpg?auto=format,compress",
+      "filename": "christopher-campbell-rDEOVtE7vOs-unsplash.jpg",
+      "size": 617917,
+      "width": 5184,
+      "height": 3456,
+      "last_modified": 1718026907586,
+      "kind": "image",
+      "extension": "jpg",
+      "created_at": 1718026907586,
+      "tags": []
+    }
+  ]
+}

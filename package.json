@@ -1,6 +1,12 @@
 {
   "scripts": {
-    "start": "tsx initContent.ts"
+    "start": "tsx initContent.ts",
+    "export": "tsx export.ts",
+    "importAssets": "tsx importAssets.ts",
+    "addAssetsIds": "tsx addAssetsIds.ts",
+    "importDocs": "tsx importDocs.ts",
+    "addLinksIds": "tsx addLinksIds.ts",
+    "reImportDocs": "tsx reImportDocs.ts"
   },
   "dependencies": {
     "@prismicio/client": "^7.3.1",

@@ -13,13 +13,14 @@ import {
   FilledLinkToMediaField,
 } from "@prismicio/client";
 import type { PrismicDocument, SliceZone } from "@prismicio/client";
-import {readAllDocuments, saveAssetComparisonTable, saveDocumentsInBatches} from "./helpers/fileHelpers";
+import { readAllDocuments, saveAssetComparisonTable, saveDocumentsInBatches } from "./helpers/fileHelpers";
 import { listAssets, mutateDocs, processAssets, saveAssetList } from "./helpers/assetsHelpers";
 import { getAuthToken } from "./helpers/authHelpers";
+import { updateDocs } from "./helpers/docHelpers";
 
 config();
 
-const instanceRepository = process.argv[2] ?? process.env.NEW_REPOSITORY_DOMAIN;
+const instanceRepository = process.env.NEW_REPOSITORY_DOMAIN;
 const templateRepository = process.env.TEMPLATE_DOMAIN;
 const apiKey = process.env.MIGRATION_API_BETA_KEY;
 const email = process.env.EMAIL;
@@ -27,9 +28,10 @@ const password = process.env.PASSWORD;
 // Construct the Prismic Write request URLs
 const migrationUrl = `https://migration.prismic.io/documents`;
 const assetUrl = `https://asset-api.prismic.io/assets`;
-export const docBatchSize = 1;
 
-async function init() {
+const batchNumber = process.argv[2]
+
+async function reImportDocs() {
   if (
     !templateRepository ||
     !instanceRepository ||
@@ -39,94 +41,27 @@ async function init() {
   )
     throw new Error("Undefined configuration, please configure your .env file");
   try {
-    // log(
-    //   `Initializing content in the repository ${instanceRepository} based on the template ${templateRepository}`
-    // );
+    function isPositiveInteger(value: string) {
+      const number = Number(value);
+      return Number.isInteger(number) && number > 0;
+    }
 
-    // // Fetch the published documents from the template repository
-    // const client = createClient(templateRepository, { fetch });
+    if (batchNumber && isPositiveInteger(batchNumber)) {
 
-    // log(
-    //   "Retrieving existing documents from the template for the master language"
-    // );
-    // const docs = await client.dangerouslyGetAll();
-    
-    // const docFolder = path.join(process.cwd(),'data/prismic-documents')
-    // saveDocumentsInBatches(docs , docFolder)
+      // // Get Auth token
+      log("Generating a user token to use Prismic's APIs");
+      const token = await getAuthToken(email, password);
 
-    // // // Get Auth token
-    // log("Generating a user token to use Prismic's APIs");
-    // const token = await getAuthToken(email,password);
-
-    // const assetList = await listAssets(templateRepository,token)
-    // log(assetList.total + " assets in remote repository")
-    // saveAssetList(assetList)
-
-    // // Download then upload to new repo all assets, and save asset Comparison table
-    // processAssets(assetList,token,apiKey,instanceRepository)
-
-    // Create docs with new Asset Ids
-    // mutateDocs();
-
-    // const assetComparisonTable = await uploadAssets(templateRepository,token)
-
-    // log(`Retrieved ${docs.length} documents`);
-    // if (docs.length > 1000) {
-    //   log(
-    //     "Uploading more than 1000 documents would fail because of the Migration Release current limit"
-    //   );
-    //   process.exit(1);
-    // }
-    // // console.log(docs)
-
-    // const assetComparisonTable = extractImageUrls(docs);
-    // saveAssetComparisonTable(assetComparisonTable)
-    // // console.log(assetComparisonTable)
-
-    // log("Downloading locally the template assets");
-    // await downloadAssets(assetComparisonTable);
-
-    // // Get Auth token
-    // log("Generating a user token to use Prismic's APIs");
-    // const token = await getAuthToken();
-
-    // // Upload images to new instance and update assetComparison table
-    // log("Uploading assets to the new repository");
-    // await uploadAssets(assetComparisonTable, token);
-    // // console.log(assetComparisonTable)
-
-    // // Delete local images
-    // log("Deleting local assets previously downloaded");
-    // await deleteLocalAssets();
-
-    // // Insert new Asset Ids in docs
-    // const docsWithNewAssetIds = mutateDocs(docs, assetComparisonTable);
-    // // console.log(docsWithNewAssetIds)
-
-    // // Push docs with new Asset Ids and build docComparisonTable
-    // log("Creating the documents with assets resolved");
-    // const docComparisonTable = await pushUpdatedDocs(
-    //   docsWithNewAssetIds,
-    //   token
-    // );
-    // // console.log(docComparisonTable);
-
-    // // Insert new Links Ids in docs
-    // const docsWithNewLinks = mutateDocsWithLinks(
-    //   docsWithNewAssetIds,
-    //   docComparisonTable
-    // );
-    // // console.log(docsWithNewLinks)
-
-    // // Push docs with new Link Ids
-    // log("Updating documents with links resolved");
-    // await pushUpdatedDocsWithLinks(docsWithNewLinks, token);
+      updateDocs(Number(batchNumber), token)
+    } else {
+      console.error(`${batchNumber} is not a positive integer. Please input a positive integer`);
+    }
   } catch (err) {
     console.error("An error occurred:", err);
   }
 }
 
-init();
+reImportDocs();
 
 // Simple logger function
 export function log(message: string, nesting: number = 0): void {
@@ -405,9 +340,9 @@ const pushUpdatedDocs = async (
       if (response.ok) {
         log(
           "New document imported of type : " +
-            doc.type +
-            " and uid: " +
-            doc.uid,
+          doc.type +
+          " and uid: " +
+          doc.uid,
           1
         );
         const newDoc = (await response.json()) as {
@@ -420,11 +355,11 @@ const pushUpdatedDocs = async (
       } else {
         console.error(
           "Request failed for doc of type : " +
-            doc.type +
-            " and uid: " +
-            doc.uid +
-            " Error details : " +
-            (await response.text())
+          doc.type +
+          " and uid: " +
+          doc.uid +
+          " Error details : " +
+          (await response.text())
         );
       }
       await delay(1000);
