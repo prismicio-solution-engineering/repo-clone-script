@@ -1,18 +1,14 @@
 {
   "scripts": {
-    "start": "tsx initContent.ts",
-    "export": "tsx export.ts",
-    "importAssets": "tsx importAssets.ts",
-    "addAssetsIds": "tsx addAssetsIds.ts",
-    "importDocs": "tsx importDocs.ts",
-    "addLinksIds": "tsx addLinksIds.ts",
-    "reImportDocs": "tsx reImportDocs.ts"
+    "start": "tsx ui/cli.ts"
   },
   "dependencies": {
     "@prismicio/client": "^7.3.1",
+    "@types/inquirer": "^9.0.7",
     "dotenv": "^16.4.5",
     "form-data": "^4.0.0",
     "fs-extra": "^11.2.0",
+    "inquirer": "^9.2.23",
     "node-fetch": "^3.3.2",
     "path": "^0.12.7"
   },

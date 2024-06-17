@@ -1,11 +1,12 @@
 import fetch from 'node-fetch';
 import fs from "fs-extra";
 import path from 'path';
-import { docBatchSize, log } from '../initContent';
+import { docBatchSize } from '../steps/constants';
 import { PrismicDocument } from '@prismicio/client';
 import { config } from 'dotenv';
 import { replaceIdsInObject } from './assetsHelpers';
 import { saveDocumentsInBatches } from './fileHelpers';
+import { log } from '../ui/cli';
 
 config();
 
@@ -34,7 +35,7 @@ export function updateDocComparisonTable(
 
   fs.writeFileSync(filePath, JSON.stringify(updatedTable, null, 2));
 
-  console.log('Docs Comparison table saved locally.');
+  log('Docs Comparison table saved locally.');
 }
 
 // Function to read a batch file
@@ -52,7 +53,7 @@ const readFinalBatchFile = (batchNumber: number): PrismicDocument[] => {
 };
 
 // Function to read the asset count
-const readDocsCount = (): number => {
+export const readDocsCount = (): number => {
   const filePath = path.join(process.cwd(), `data/prismic-documents/count.json`);
   const fileContent = fs.readFileSync(filePath, 'utf-8');
   return JSON.parse(fileContent).length;
@@ -108,7 +109,7 @@ export const createDocs = async (batchNumber: number, token: string) => {
             };
             docIdMap.push({ olDid: doc.id, newId: newDoc.id });
           } else {
-            console.error(
+            throw Error(
               "Request failed for doc of type : " +
               doc.type +
               " and uid: " +
@@ -119,7 +120,7 @@ export const createDocs = async (batchNumber: number, token: string) => {
           }
           await delay(2000);
         } catch (err) {
-          console.error("Error while uploading new document: ", err);
+          throw Error("Error while uploading new document: " + err)
         }
       }
       updateDocComparisonTable(docIdMap, currentTable)
@@ -181,8 +182,6 @@ export const updateDocs = async (batchNumber:number, token: string) => {
     for (let j = 0; j < Math.min(docBatchSize, readDocsCount() - (docBatchSize * (batchCount - 1))); j++) {
       const doc = docs[j];
 
-      console.log(doc)
-
       // Send the update
       try {
         const response = await fetch(migrationUrl + "/" + doc.id, {
@@ -205,7 +204,7 @@ export const updateDocs = async (batchNumber:number, token: string) => {
             1
           );
         } else {
-          await delay(1000);
+          await delay(2000);
           console.error(
             "Request failed for doc of type : " +
             doc.type +
@@ -216,7 +215,7 @@ export const updateDocs = async (batchNumber:number, token: string) => {
           );
         }
 
-        await delay(1000);
+        await delay(2000);
       } catch (err) {
         console.error("Error while uploading new document: ", err);
       }

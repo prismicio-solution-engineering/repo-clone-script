@@ -6,20 +6,22 @@ import path from "path";
 import {
   createClient
 } from "@prismicio/client";
-import { clearDataFolder, saveDocumentsInBatches} from "./helpers/fileHelpers";
-import { listAssets, saveAssetList } from "./helpers/assetsHelpers";
-import { getAuthToken } from "./helpers/authHelpers";
+
+import { clearDataFolder, saveDocumentsInBatches} from "../helpers/fileHelpers";
+import { listAssets, saveAssetList } from "../helpers/assetsHelpers";
+import { getAuthToken } from "../helpers/authHelpers";
+import { log } from "../ui/cli";
 
 config();
 
+// Read env
 const instanceRepository = process.env.NEW_REPOSITORY_DOMAIN;
 const templateRepository = process.env.TEMPLATE_DOMAIN;
 const apiKey = process.env.MIGRATION_API_BETA_KEY;
 const email = process.env.EMAIL;
 const password = process.env.PASSWORD;
-// Construct the Prismic Write request URLs
 
-async function exportRepo() {
+export async function exportRepo() {
   if (
     !templateRepository ||
     !instanceRepository ||
@@ -53,23 +55,10 @@ async function exportRepo() {
     const assetList = await listAssets(templateRepository,token)
     log(assetList.total + " assets in remote repository")
     saveAssetList(assetList)
-
+    return true
   } catch (err) {
     // Might be errors with initial prismic images, can be ignored as they happen at the last step
     console.error("An error occurred:", err);
-  }
-}
-
-exportRepo();
-
-// Simple logger function
-export function log(message: string, nesting: number = 0): void {
-  if (nesting === 0) console.log("[Init Content]: ", message);
-  else {
-    let padding = "";
-    for (let i = 0; i < nesting; i++) {
-      padding = padding + "\t";
-    }
-    console.log(padding, `- ${message}`);
+    return false
   }
 }

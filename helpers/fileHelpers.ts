@@ -1,7 +1,8 @@
 import fs from "fs-extra";
 import path from "path";
 import type { PrismicDocument } from "@prismicio/client";
-import { docBatchSize, log } from "../initContent";
+import { docBatchSize } from "../steps/constants";
+import { log } from "../ui/cli";
 
 export function clearDataFolder(dir :string) {
     cleanDirectory(dir)
@@ -10,7 +11,7 @@ export function clearDataFolder(dir :string) {
 
 export function saveDocumentsInBatches(docs: PrismicDocument[], dir :string) {
     cleanDirectory(dir)
-    console.log('Cleared '+ dir +' folder.');
+    log('Cleared '+ dir +' folder.');
 
     for (let i = 0; i < docs.length; i += docBatchSize) {
         const batch = docs.slice(i, i + docBatchSize);
@@ -21,7 +22,7 @@ export function saveDocumentsInBatches(docs: PrismicDocument[], dir :string) {
     const filePath = path.join(dir, `count.json`);
     fs.writeFileSync(filePath, JSON.stringify({length:docs.length}, null, 2));
 
-    console.log('Documents saved in batches locally.');
+    log('Documents saved in batches locally.');
 }
 
 export async function saveAssetComparisonTable(table: {
@@ -35,7 +36,7 @@ export async function saveAssetComparisonTable(table: {
 
     fs.writeFileSync(filePath, JSON.stringify(table, null, 2));
 
-    console.log('Asset Comparison table saved locally.');
+    log('Asset Comparison table saved locally.');
 }
 
 function cleanDirectory(dir: string) {

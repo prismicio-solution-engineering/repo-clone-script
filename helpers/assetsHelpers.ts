@@ -2,9 +2,11 @@ import fetch from 'node-fetch';
 import fs from "fs-extra";
 import path from 'path';
 import FormData from "form-data";
-import { docBatchSize, log } from '../initContent';
+import { docBatchSize } from '../steps/constants';
 import { PrismicDocument } from '@prismicio/client';
 import { saveDocumentsInBatches } from './fileHelpers';
+import { readDocsCount } from './docHelpers';
+import { log } from '../ui/cli';
 
 const assetUrl = `https://asset-api.prismic.io/assets`;
 
@@ -104,7 +106,7 @@ export function saveAssetList(list: MediaResponse) {
 
     fs.writeFileSync(filePath, JSON.stringify(list, null, 2));
 
-    console.log('Asset List saved locally.');
+    log('Asset List saved locally.');
 }
 
 // Delay function
@@ -144,7 +146,7 @@ const uploadFile = async (filePath: string, token: string, apiKey: string, repos
         throw new Error(`Failed to upload file: ${response.statusText}`);
     }
 
-    await delay(1000);
+    await delay(2000);
 
     const json = await response.json();
     return {
@@ -204,7 +206,7 @@ export function saveAssetComparisonTable(assetComparisonTable: {
 
     fs.writeFileSync(filePath, JSON.stringify(assetComparisonTable, null, 2));
 
-    console.log('Asset Comparison table saved locally.');
+    log('Asset Comparison table saved locally.');
 }
 
 // Function to read a batch file
@@ -226,13 +228,6 @@ export const readAssetList = (): MediaResponse => {
     const filePath = path.join(process.cwd(), `data/assets-list.json`);
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(fileContent);
-};
-
-// Function to read the asset count
-const readDocsCount = (): number => {
-    const filePath = path.join(process.cwd(), `data/prismic-documents/count.json`);
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(fileContent).length;
 };
 
 // Replace assetIDs in all docs
