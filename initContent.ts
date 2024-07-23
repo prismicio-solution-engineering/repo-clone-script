@@ -160,8 +160,7 @@ function extractImageUrls(documents: PrismicDocument[]) {
       return {
         olDid: extractedImage.id,
         url: extractedImage.url
-          .replace("?auto=format,compress", "")
-          .replace("?auto=compress,format", ""),
+          .replace(/\?.*$/, ""),
         fileName: extractedImage.url.includes("images.unsplash.com")
           ? path.basename(extractedImage.url.split("?")[0]) + ".webp"
           : extractedImage.url.split("?")[0],
@@ -172,8 +171,7 @@ function extractImageUrls(documents: PrismicDocument[]) {
     return {
       olDid: extractedImage.id,
       url: extractedImage.url
-        .replace("?auto=format,compress", "")
-        .replace("?auto=compress,format", ""),
+      .replace(/\?.*$/, ""),
       fileName: extractedImage.url.includes("images.unsplash.com")
         ? path.basename(extractedImage.url.split("?")[0]) + ".webp"
         : removePrefix(extractedImage.url.split("?")[0]),
