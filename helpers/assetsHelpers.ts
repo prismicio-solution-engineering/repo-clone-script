@@ -187,7 +187,12 @@ export const processAssets = async (assets: MediaResponse, token: string, apiKey
             log(`Uploaded Asset: ${filePath}`, 1);
 
         } catch (error) {
-            console.error(`Error processing ${assets.items[index].filename}:`, error);
+            if (assets.items[index].filename === 'star.gif') {
+                log('star.gif from Prismic not uploaded')
+            }
+            else {
+                console.error(`Error processing ${assets.items[index].filename}:`, error);
+            }
         }
     }
     saveAssetComparisonTable(assetComparisonTable)
